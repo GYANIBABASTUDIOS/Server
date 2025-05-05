@@ -1,29 +1,25 @@
-// server.js
-
 const WebSocket = require("ws");
+const server = new WebSocket.Server({ port: 3000 });
+let clients = new Map();
 
-const wss = new WebSocket.Server({ port: process.env.PORT || 8080 });
+server.on("connection", (ws) => {
+  const id = Math.random().toString(36).substr(2, 9); // unique id
+  clients.set(ws, id);
+  console.log(`Client connected: ${id}`);
 
-let clients = [];
+  ws.send(JSON.stringify({ type: "id", id }));
 
-wss.on("connection", function connection(ws) {
-  clients.push(ws);
-  console.log("A client connected. Total clients:", clients.length);
-
-  ws.on("message", function incoming(message) {
-    console.log("received: %s", message);
-    // Broadcast to all other clients
-    clients.forEach(function each(client) {
-      if (client !== ws && client.readyState === WebSocket.OPEN) {
-        client.send(message);
+  ws.on("message", (message) => {
+    // Broadcast to all clients
+    for (let [client, _] of clients.entries()) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message.toString());
       }
-    });
+    }
   });
 
-  ws.on("close", function () {
-    clients = clients.filter(c => c !== ws);
-    console.log("A client disconnected. Total clients:", clients.length);
+  ws.on("close", () => {
+    console.log(`Client disconnected: ${clients.get(ws)}`);
+    clients.delete(ws);
   });
 });
-
-console.log("WebSocket server is running...");
